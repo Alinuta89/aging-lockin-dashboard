@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alberta Municipal Aging Lock-In Analysis</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Lato', sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+    const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ScatterChart, Scatter, Cell, Legend } = Recharts;
+
+    // Raw data
+    const rawData = [
+      { id: '4812029', name: 'Smoky Lake', type: 'Town', pop2021: 960, pop2026: 1130, change: 170, changeRate: 0.177, units: 520, ratio1: 0.92, ratio2: 1.173, delta: 0.253, pressureIndex: 0.093, status: 'critical' },
+      { id: '4806011', name: 'Black Diamond', type: 'Town', pop2021: 2700, pop2026: 2735, change: 35, changeRate: 0.013, units: 1480, ratio1: 0.672, ratio2: 0.848, delta: 0.176, pressureIndex: 0.157, status: 'structural' },
+      { id: '4803022', name: 'Claresholm', type: 'Town', pop2021: 3785, pop2026: 3805, change: 20, changeRate: 0.005, units: 1955, ratio1: 0.807, ratio2: 0.946, delta: 0.140, pressureIndex: 0.126, status: 'critical' },
+      { id: '4803018', name: 'Willow Creek No. 26', type: 'Municipal district', pop2021: 5180, pop2026: 6080, change: 900, changeRate: 0.174, units: 3495, ratio1: 0.604, ratio2: 0.740, delta: 0.136, pressureIndex: 0.211, status: 'structural' },
+      { id: '4803001', name: 'Cardston County', type: 'Municipal district', pop2021: 4480, pop2026: 4855, change: 375, changeRate: 0.084, units: 2685, ratio1: 0.681, ratio2: 0.808, delta: 0.127, pressureIndex: 0.262, status: 'structural' },
+      { id: '4817835', name: 'Fox Lake 162', type: 'Indian reserve', pop2021: 2030, pop2026: 2485, change: 455, changeRate: 0.224, units: 1320, ratio1: 0.804, ratio2: 0.883, delta: 0.078, pressureIndex: 0.451, status: 'critical' },
+      { id: '4808008', name: 'Innisfail', type: 'Town', pop2021: 7840, pop2026: 7980, change: 140, changeRate: 0.018, units: 4660, ratio1: 0.640, ratio2: 0.712, delta: 0.072, pressureIndex: 0.162, status: 'structural' },
+      { id: '4803011', name: 'Pincher Creek No. 9', type: 'Municipal district', pop2021: 2965, pop2026: 3240, change: 275, changeRate: 0.093, units: 1885, ratio1: 0.647, ratio2: 0.719, delta: 0.072, pressureIndex: 0.159, status: 'structural' },
+      { id: '4802018', name: 'Picture Butte', type: 'Town', pop2021: 1805, pop2026: 1930, change: 125, changeRate: 0.069, units: 1105, ratio1: 0.679, ratio2: 0.747, delta: 0.068, pressureIndex: 0.259, status: 'structural' },
+      { id: '4802008', name: 'Raymond', type: 'Town', pop2021: 3710, pop2026: 4195, change: 485, changeRate: 0.131, units: 2300, ratio1: 0.758, ratio2: 0.824, delta: 0.066, pressureIndex: 0.263, status: 'structural' },
+      { id: '4817095', name: 'Mackenzie County', type: 'Specialized municipality', pop2021: 11170, pop2026: 12805, change: 1635, changeRate: 0.146, units: 7195, ratio1: 0.721, ratio2: 0.780, delta: 0.059, pressureIndex: 0.363, status: 'structural' },
+      { id: '4810048', name: 'Two Hills County No. 21', type: 'Municipal district', pop2021: 3315, pop2026: 3410, change: 95, changeRate: 0.029, units: 1930, ratio1: 0.709, ratio2: 0.767, delta: 0.058, pressureIndex: 0.249, status: 'structural' },
+      { id: '4803002', name: 'Magrath', type: 'Town', pop2021: 2370, pop2026: 2480, change: 110, changeRate: 0.046, units: 1365, ratio1: 0.762, ratio2: 0.817, delta: 0.055, pressureIndex: 0.256, status: 'structural' },
+      { id: '4803019', name: 'Fort Macleod', type: 'Town', pop2021: 2965, pop2026: 3295, change: 330, changeRate: 0.111, units: 1915, ratio1: 0.675, ratio2: 0.721, delta: 0.045, pressureIndex: 0.185, status: 'structural' }
+    ];
+
+    // Brand colors
+    const colors = {
+      deepNavy: '#0B1F33',
+      midnightBlue: '#102A43',
+      tealCore: '#0FB9B1',
+      aquaLight: '#4FD1C5',
+      slateBlue: '#1E3A5F',
+      white: '#FFFFFF',
+      nearBlack: '#0A0A0A',
+      critical: '#E53E3E',
+      structural: '#0FB9B1'
+    };
+
+    const CustomTooltip = ({ active, payload }) => {
+      if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        return (
+          <div style={{
+            background: colors.white,
+            border: `1px solid ${colors.slateBlue}`,
+            padding: '12px 16px',
+            fontFamily: 'Lato, sans-serif',
+            fontSize: '13px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          }}>
+            <p style={{ fontWeight: 'bold', margin: '0 0 8px 0', color: colors.deepNavy }}>{data.name}</p>
+            <p style={{ margin: '2px 0', color: colors.nearBlack }}>Population: {data.pop2026?.toLocaleString()}</p>
+            <p style={{ margin: '2px 0', color: colors.nearBlack }}>Change: {data.change > 0 ? '+' : ''}{data.change?.toLocaleString()} ({(data.changeRate * 100).toFixed(1)}%)</p>
+            <p style={{ margin: '2px 0', color: colors.nearBlack }}>Housing Units: {data.units?.toLocaleString()}</p>
+            <p style={{ margin: '2px 0', color: colors.nearBlack }}>Pressure Index: {(data.pressureIndex * 100).toFixed(1)}%</p>
+          </div>
+        );
+      }
+      return null;
+    };
+
+    function AgingLockInDashboard() {
+      const [selectedStatus, setSelectedStatus] = useState('all');
+      const [selectedMunicipality, setSelectedMunicipality] = useState(null);
+      const [activeView, setActiveView] = useState('overview');
+
+      const filteredData = useMemo(() => {
+        if (selectedStatus === 'all') return rawData;
+        return rawData.filter(d => d.status === selectedStatus);
+      }, [selectedStatus]);
+
+      const summaryStats = useMemo(() => {
+        const critical = rawData.filter(d => d.status === 'critical');
+        const structural = rawData.filter(d => d.status === 'structural');
+        const totalPop = rawData.reduce((sum, d) => sum + d.pop2026, 0);
+        const totalChange = rawData.reduce((sum, d) => sum + d.change, 0);
+        const avgPressure = rawData.reduce((sum, d) => sum + d.pressureIndex, 0) / rawData.length;
+
+        return {
+          totalMunicipalities: rawData.length,
+          criticalCount: critical.length,
+          structuralCount: structural.length,
+          totalPopulation: totalPop,
+          totalPopChange: totalChange,
+          avgPressureIndex: avgPressure
+        };
+      }, []);
+
+      const chartData = useMemo(() => {
+        return filteredData.map(d => ({
+          ...d,
+          shortName: d.name.length > 15 ? d.name.substring(0, 15) + '...' : d.name,
+          changePercent: d.changeRate * 100,
+          pressurePercent: d.pressureIndex * 100
+        })).sort((a, b) => b.pressureIndex - a.pressureIndex);
+      }, [filteredData]);
+
+      const StatCard = ({ label, value, subtext, highlight }) => (
+        <div style={{
+          background: colors.white,
+          padding: '24px',
+          borderLeft: `3px solid ${highlight ? colors.tealCore : colors.slateBlue}`,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+        }}>
+          <p style={{
+            fontFamily: 'Lato, sans-serif',
+            fontWeight: 300,
+            fontSize: '13px',
+            color: colors.slateBlue,
+            margin: '0 0 8px 0',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px'
+          }}>{label}</p>
+          <p style={{
+            fontFamily: 'Lato, sans-serif',
+            fontWeight: 'bold',
+            fontSize: '28px',
+            color: colors.deepNavy,
+            margin: 0
+          }}>{value}</p>
+          {subtext && (
+            <p style={{
+              fontFamily: 'Lato, sans-serif',
+              fontWeight: 300,
+              fontSize: '12px',
+              color: colors.slateBlue,
+              margin: '4px 0 0 0'
+            }}>{subtext}</p>
+          )}
+        </div>
+      );
+
+      const MunicipalityDetail = ({ data }) => (
+        <div style={{
+          background: colors.white,
+          padding: '32px',
+          marginTop: '24px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+            <div>
+              <h3 style={{
+                fontFamily: 'Lato, sans-serif',
+                fontWeight: 'bold',
+                fontSize: '20px',
+                color: colors.deepNavy,
+                margin: '0 0 4px 0'
+              }}>{data.name}</h3>
+              <p style={{
+                fontFamily: 'Lato, sans-serif',
+                fontWeight: 300,
+                fontSize: '14px',
+                color: colors.slateBlue,
+                margin: 0
+              }}>{data.type} • Census ID: {data.id}</p>
+            </div>
+            <span style={{
+              background: data.status === 'critical' ? '#FED7D7' : '#C6F6D5',
+              color: data.status === 'critical' ? '#C53030' : '#276749',
+              padding: '4px 12px',
+              borderRadius: '4px',
+              fontFamily: 'Lato, sans-serif',
+              fontWeight: 'bold',
+              fontSize: '12px',
+              textTransform: 'uppercase'
+            }}>{data.status}</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px' }}>
+            <div>
+              <p style={{ fontFamily: 'Lato, sans-serif', fontWeight: 300, fontSize: '12px', color: colors.slateBlue, margin: '0 0 4px 0' }}>Population (2026)</p>
+              <p style={{ fontFamily: 'Lato, sans-serif', fontWeight: 'bold', fontSize: '18px', color: colors.deepNavy, margin: 0 }}>{data.pop2026.toLocaleString()}</p>
+            </div>
+            <div>
+              <p style={{ fontFamily: 'Lato, sans-serif', fontWeight: 300, fontSize: '12px', color: colors.slateBlue, margin: '0 0 4px 0' }}>Population Change</p>
+              <p style={{ fontFamily: 'Lato, sans-serif', fontWeight: 'bold', fontSize: '18px', color: data.change > 0 ? colors.tealCore : colors.nearBlack, margin: 0 }}>
+                {data.change > 0 ? '+' : ''}{data.change.toLocaleString()} ({(data.changeRate * 100).toFixed(1)}%)
+              </p>
+            </div>
+            <div>
+              <p style={{ fontFamily: 'Lato, sans-serif', fontWeight: 300, fontSize: '12px', color: colors.slateBlue, margin: '0 0 4px 0' }}>Housing Units</p>
+              <p style={{ fontFamily: 'Lato, sans-serif', fontWeight: 'bold', fontSize: '18px', color: colors.deepNavy, margin: 0 }}>{data.units.toLocaleString()}</p>
+            </div>
+            <div>
+              <p style={{ fontFamily: 'Lato, sans-serif', fontWeight: 300, fontSize: '12px', color: colors.slateBlue, margin: '0 0 4px 0' }}>Pressure Index</p>
+              <p style={{ fontFamily: 'Lato, sans-serif', fontWeight: 'bold', fontSize: '18px', color: colors.deepNavy, margin: 0 }}>{(data.pressureIndex * 100).toFixed(1)}%</p>
+            </div>
+          </div>
+
+          <div style={{ marginTop: '24px', padding: '16px', background: '#F7FAFC', borderRadius: '4px' }}>
+            <p style={{ fontFamily: 'Lato, sans-serif', fontWeight: 'bold', fontSize: '13px', color: colors.deepNavy, margin: '0 0 8px 0' }}>Aging Lock-In Assessment</p>
+            <p style={{ fontFamily: 'Lato, sans-serif', fontWeight: 400, fontSize: '14px', color: colors.nearBlack, margin: 0, lineHeight: '1.6' }}>
+              {data.status === 'critical'
+                ? `${data.name} shows critical aging lock-in indicators. The occupancy ratio shift of ${(data.delta * 100).toFixed(1)}% combined with a pressure index of ${(data.pressureIndex * 100).toFixed(1)}% suggests significant housing market constraints that may limit turnover and availability for new residents.`
+                : `${data.name} exhibits structural aging lock-in patterns. While not immediately critical, the ${(data.pressureIndex * 100).toFixed(1)}% pressure index indicates underlying constraints in housing stock availability that warrant monitoring.`
+              }
+            </p>
+          </div>
+
+          <button
+            onClick={() => setSelectedMunicipality(null)}
+            style={{
+              marginTop: '16px',
+              padding: '8px 16px',
+              background: 'transparent',
+              border: `1px solid ${colors.slateBlue}`,
+              color: colors.slateBlue,
+              fontFamily: 'Lato, sans-serif',
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            Close Detail View
+          </button>
+        </div>
+      );
+
+      return (
+        <div style={{
+          minHeight: '100vh',
+          background: '#F7FAFC',
+          fontFamily: 'Lato, sans-serif'
+        }}>
+          {/* Header */}
+          <div style={{
+            background: `linear-gradient(to right, ${colors.deepNavy}, ${colors.tealCore})`,
+            padding: '48px 64px',
+            color: colors.white
+          }}>
+            <h1 style={{
+              fontWeight: 'bold',
+              fontSize: '32px',
+              margin: '0 0 8px 0'
+            }}>Alberta Municipal Aging Lock-In Analysis</h1>
+            <p style={{
+              fontWeight: 300,
+              fontSize: '16px',
+              margin: 0,
+              opacity: 0.9
+            }}>Housing market constraints and demographic pressure indicators across 14 municipalities</p>
+          </div>
+
+          {/* Main Content */}
+          <div style={{ padding: '32px 64px' }}>
+
+            {/* Summary Stats */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: '24px',
+              marginBottom: '32px'
+            }}>
+              <StatCard
+                label="Total Municipalities"
+                value={summaryStats.totalMunicipalities}
+                subtext="Exhibiting aging lock-in patterns"
+              />
+              <StatCard
+                label="Critical Status"
+                value={summaryStats.criticalCount}
+                subtext="Requiring immediate attention"
+                highlight
+              />
+              <StatCard
+                label="Combined Population"
+                value={summaryStats.totalPopulation.toLocaleString()}
+                subtext={`+${summaryStats.totalPopChange.toLocaleString()} net change`}
+              />
+              <StatCard
+                label="Avg. Pressure Index"
+                value={`${(summaryStats.avgPressureIndex * 100).toFixed(1)}%`}
+                subtext="Across all municipalities"
+              />
+            </div>
+
+            {/* Controls */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px'
+            }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {['overview', 'pressure', 'growth'].map(view => (
+                  <button
+                    key={view}
+                    onClick={() => setActiveView(view)}
+                    style={{
+                      padding: '10px 20px',
+                      background: activeView === view ? colors.slateBlue : colors.white,
+                      color: activeView === view ? colors.white : colors.slateBlue,
+                      border: `1px solid ${colors.slateBlue}`,
+                      fontFamily: 'Lato, sans-serif',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      textTransform: 'capitalize'
+                    }}
+                  >
+                    {view === 'overview' ? 'Overview' : view === 'pressure' ? 'Pressure Analysis' : 'Growth Patterns'}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '13px', color: colors.slateBlue, fontWeight: 300 }}>Filter by status:</span>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  style={{
+                    padding: '8px 16px',
+                    border: `1px solid ${colors.slateBlue}`,
+                    fontFamily: 'Lato, sans-serif',
+                    fontSize: '13px',
+                    background: colors.white,
+                    color: colors.deepNavy
+                  }}
+                >
+                  <option value="all">All Municipalities</option>
+                  <option value="critical">Critical Only</option>
+                  <option value="structural">Structural Only</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Insights Panel */}
+            <div style={{
+              background: colors.white,
+              padding: '24px',
+              marginBottom: '24px',
+              borderLeft: `3px solid ${colors.tealCore}`,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+            }}>
+              <h3 style={{
+                fontWeight: 'bold',
+                fontSize: '14px',
+                color: colors.deepNavy,
+                margin: '0 0 12px 0'
+              }}>Key Insights</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
+                <div>
+                  <p style={{ fontSize: '13px', color: colors.nearBlack, margin: 0, lineHeight: '1.6' }}>
+                    <strong>Fox Lake 162</strong> shows the highest pressure index at 45.1%, indicating severe housing constraints relative to population growth of 22.4%.
+                  </p>
+                </div>
+                <div>
+                  <p style={{ fontSize: '13px', color: colors.nearBlack, margin: 0, lineHeight: '1.6' }}>
+                    <strong>Mackenzie County</strong> leads in absolute population growth (+1,635) but maintains structural status due to larger housing stock capacity.
+                  </p>
+                </div>
+                <div>
+                  <p style={{ fontSize: '13px', color: colors.nearBlack, margin: 0, lineHeight: '1.6' }}>
+                    <strong>Smoky Lake</strong> exhibits the highest occupancy delta (25.3%), signaling rapid tightening in housing availability despite modest population.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Charts */}
+            {activeView === 'overview' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                <div style={{
+                  background: colors.white,
+                  padding: '24px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                }}>
+                  <h3 style={{
+                    fontWeight: 'bold',
+                    fontSize: '14px',
+                    color: colors.deepNavy,
+                    margin: '0 0 24px 0'
+                  }}>Housing Pressure Index by Municipality</h3>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 20 }}>
+                      <XAxis type="number" domain={[0, 50]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11, fill: colors.slateBlue }} />
+                      <YAxis type="category" dataKey="shortName" width={100} tick={{ fontSize: 11, fill: colors.nearBlack }} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="pressurePercent" radius={[0, 2, 2, 0]}>
+                        {chartData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={entry.status === 'critical' ? colors.tealCore : colors.slateBlue}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => setSelectedMunicipality(entry)}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div style={{
+                  background: colors.white,
+                  padding: '24px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                }}>
+                  <h3 style={{
+                    fontWeight: 'bold',
+                    fontSize: '14px',
+                    color: colors.deepNavy,
+                    margin: '0 0 24px 0'
+                  }}>Population Growth vs. Housing Pressure</h3>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                      <XAxis
+                        type="number"
+                        dataKey="changePercent"
+                        name="Population Growth"
+                        unit="%"
+                        domain={[-5, 25]}
+                        tick={{ fontSize: 11, fill: colors.slateBlue }}
+                        label={{ value: 'Population Growth (%)', position: 'bottom', offset: 0, fontSize: 11, fill: colors.slateBlue }}
+                      />
+                      <YAxis
+                        type="number"
+                        dataKey="pressurePercent"
+                        name="Pressure Index"
+                        unit="%"
+                        domain={[0, 50]}
+                        tick={{ fontSize: 11, fill: colors.slateBlue }}
+                        label={{ value: 'Pressure Index (%)', angle: -90, position: 'insideLeft', fontSize: 11, fill: colors.slateBlue }}
+                      />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Scatter data={chartData} fill={colors.slateBlue}>
+                        {chartData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={entry.status === 'critical' ? colors.tealCore : colors.slateBlue}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => setSelectedMunicipality(entry)}
+                          />
+                        ))}
+                      </Scatter>
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                  <div style={{ display: 'flex', gap: '24px', justifyContent: 'center', marginTop: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: 12, height: 12, background: colors.tealCore, borderRadius: '50%' }} />
+                      <span style={{ fontSize: '12px', color: colors.slateBlue }}>Critical</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: 12, height: 12, background: colors.slateBlue, borderRadius: '50%' }} />
+                      <span style={{ fontSize: '12px', color: colors.slateBlue }}>Structural</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeView === 'pressure' && (
+              <div style={{
+                background: colors.white,
+                padding: '24px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+              }}>
+                <h3 style={{
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  color: colors.deepNavy,
+                  margin: '0 0 24px 0'
+                }}>Occupancy Ratio Shift Analysis</h3>
+                <ResponsiveContainer width="100%" height={450}>
+                  <BarChart data={[...chartData].sort((a, b) => b.delta - a.delta)} margin={{ left: 20, right: 40, bottom: 80 }}>
+                    <XAxis
+                      dataKey="shortName"
+                      angle={-45}
+                      textAnchor="end"
+                      interval={0}
+                      tick={{ fontSize: 11, fill: colors.nearBlack }}
+                      height={80}
+                    />
+                    <YAxis tick={{ fontSize: 11, fill: colors.slateBlue }} tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="delta" name="Occupancy Shift" radius={[2, 2, 0, 0]}>
+                      {[...chartData].sort((a, b) => b.delta - a.delta).map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.status === 'critical' ? colors.tealCore : colors.slateBlue}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setSelectedMunicipality(entry)}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {activeView === 'growth' && (
+              <div style={{
+                background: colors.white,
+                padding: '24px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+              }}>
+                <h3 style={{
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  color: colors.deepNavy,
+                  margin: '0 0 24px 0'
+                }}>Population Change by Municipality</h3>
+                <ResponsiveContainer width="100%" height={450}>
+                  <BarChart data={[...chartData].sort((a, b) => b.change - a.change)} margin={{ left: 20, right: 40, bottom: 80 }}>
+                    <XAxis
+                      dataKey="shortName"
+                      angle={-45}
+                      textAnchor="end"
+                      interval={0}
+                      tick={{ fontSize: 11, fill: colors.nearBlack }}
+                      height={80}
+                    />
+                    <YAxis tick={{ fontSize: 11, fill: colors.slateBlue }} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="change" name="Population Change" radius={[2, 2, 0, 0]}>
+                      {[...chartData].sort((a, b) => b.change - a.change).map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.status === 'critical' ? colors.tealCore : colors.slateBlue}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setSelectedMunicipality(entry)}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Municipality Detail */}
+            {selectedMunicipality && <MunicipalityDetail data={selectedMunicipality} />}
+
+            {/* Data Table */}
+            <div style={{
+              background: colors.white,
+              padding: '24px',
+              marginTop: '24px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+            }}>
+              <h3 style={{
+                fontWeight: 'bold',
+                fontSize: '14px',
+                color: colors.deepNavy,
+                margin: '0 0 16px 0'
+              }}>Municipality Data</h3>
+              <p style={{
+                fontWeight: 300,
+                fontSize: '12px',
+                color: colors.slateBlue,
+                margin: '0 0 16px 0'
+              }}>Click any row to view detailed analysis</p>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  fontFamily: 'Lato, sans-serif',
+                  fontSize: '13px'
+                }}>
+                  <thead>
+                    <tr style={{ borderBottom: `2px solid ${colors.slateBlue}` }}>
+                      <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 'bold', color: colors.deepNavy }}>Municipality</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 'bold', color: colors.deepNavy }}>Type</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 'bold', color: colors.deepNavy }}>Population</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 'bold', color: colors.deepNavy }}>Change</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 'bold', color: colors.deepNavy }}>Units</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 'bold', color: colors.deepNavy }}>Pressure</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 'bold', color: colors.deepNavy }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredData.map((row, idx) => (
+                      <tr
+                        key={row.id}
+                        onClick={() => setSelectedMunicipality(row)}
+                        style={{
+                          borderBottom: `1px solid #E2E8F0`,
+                          cursor: 'pointer',
+                          background: selectedMunicipality?.id === row.id ? '#F7FAFC' : 'transparent'
+                        }}
+                      >
+                        <td style={{ padding: '12px 8px', color: colors.nearBlack }}>{row.name}</td>
+                        <td style={{ padding: '12px 8px', color: colors.slateBlue, fontWeight: 300 }}>{row.type}</td>
+                        <td style={{ padding: '12px 8px', textAlign: 'right', color: colors.nearBlack }}>{row.pop2026.toLocaleString()}</td>
+                        <td style={{ padding: '12px 8px', textAlign: 'right', color: row.change > 0 ? colors.tealCore : colors.nearBlack }}>
+                          {row.change > 0 ? '+' : ''}{row.change.toLocaleString()} ({(row.changeRate * 100).toFixed(1)}%)
+                        </td>
+                        <td style={{ padding: '12px 8px', textAlign: 'right', color: colors.nearBlack }}>{row.units.toLocaleString()}</td>
+                        <td style={{ padding: '12px 8px', textAlign: 'right', color: colors.nearBlack }}>{(row.pressureIndex * 100).toFixed(1)}%</td>
+                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                          <span style={{
+                            background: row.status === 'critical' ? '#FED7D7' : '#E6FFFA',
+                            color: row.status === 'critical' ? '#C53030' : '#234E52',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            textTransform: 'uppercase'
+                          }}>{row.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              marginTop: '48px',
+              paddingTop: '24px',
+              borderTop: `1px solid #E2E8F0`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <p style={{
+                fontWeight: 300,
+                fontSize: '12px',
+                color: colors.slateBlue,
+                margin: 0
+              }}>
+                Data source: Statistics Canada Census subdivisions • Analysis: HelpSeeker Technologies
+              </p>
+              <p style={{
+                fontWeight: 300,
+                fontSize: '12px',
+                color: colors.slateBlue,
+                margin: 0
+              }}>
+                Aging lock-in pattern indicates reduced housing turnover due to aging-in-place demographics
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<AgingLockInDashboard />);
+  </script>
+</body>
+</html>
